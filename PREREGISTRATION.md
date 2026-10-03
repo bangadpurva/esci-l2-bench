@@ -50,28 +50,41 @@ compare as L2 rerankers for product search, on precision, latency and cost?
 Amendment (2026-10-03, still before any model run on ESCI): bge-reranker-v2-m3 was dropped
 as a reference cross-encoder to keep the comparison to the four models of interest.
 
-## Two settings
+## Two settings (co-primary)
 
-- **Retrieved (primary):** L1 top-100 from the full catalog. Realistic, but most retrieved
+- **Judged:** each query's ESCI-judged products (median 16), ordered by the same embedding
+  similarity. Every candidate is labelled, so it is the clean head-to-head. Headline numbers
+  come from this setting.
+- **Retrieved:** L1 top-100 from the full catalog. The end-to-end view, but most retrieved
   products were never judged.
-- **Judged (key secondary):** each query's ESCI-judged products (median 16), ordered by the
-  same embedding similarity. Every candidate is labelled, so it is a clean head-to-head.
 
 ## Metrics and decision rule
 
-- **Primary:** P@10, strict (relevant = E; unjudged counts as not relevant), retrieved
-  setting, test.
-- **Decision rule:** paired bootstrap over queries (10,000 resamples) of each model's P@10
-  minus L1 order's; Holm correction across all non-baseline models in the table. A model
-  beats L1 if its adjusted p < 0.05 and the mean difference is positive.
-- **Key secondary:** P@5 (same rule), and P@10 in the judged setting (same rule, own Holm
-  family).
+- **Co-primary:** P@10, strict (relevant = E; unjudged counts as not relevant), on test, in
+  both the judged and the retrieved setting.
+- **Decision rule:** in each setting separately, paired bootstrap over queries (10,000
+  resamples) of each model's P@10 minus L1 order's, Holm-corrected across all non-baseline
+  models in that setting. A model **beats L1** only if it does so in **both** settings
+  (adjusted p < 0.05 and positive mean difference in each). Requiring both is an
+  intersection-union test, so no further correction across settings is needed.
+- **Key secondary:** P@5 under the same rule.
 - **Other secondary:** P@10/P@5 with E+S relevant; judged-only P@10/P@5 (unjudged removed
   before cutting at k); judged@10; NDCG@10 with official gains; L1 Recall@100 of E;
   per-query latency p50/p95 at fixed hardware and concurrency; USD per 1,000 queries from
   billed tokens.
-- **Robustness rule:** with incomplete labels, a retrieved-setting difference between two
-  models is called robust only if the judged-setting difference has the same sign.
+- **Model-vs-model:** a difference between two rerankers is reported as robust only if it
+  has the same sign in both settings.
+
+### Amendment 2 (2026-10-03, after the L1 dry run, before any reranker or baseline output)
+
+Originally the retrieved setting was the sole primary and the judged setting a key
+secondary. The L1 dry run on test showed judged@10 = 0.248: three of every four products in
+the retrieved top 10 have no ESCI label, and strict P@10 counts them as not relevant. Such a
+large unlabelled share could swamp real differences between rerankers, so the judged setting
+was made co-primary and a win over L1 now has to hold in both settings. Seen at the time of
+this decision: only L1 diagnostics (ANN overlap@100 0.974; recall of E@100 0.498; queries
+with an E in the top 100 0.806; judged@10 0.248). No reranker, baseline or label-dependent
+ranking output existed.
 
 ## Baselines
 
