@@ -26,10 +26,13 @@ from recl2bench import pools as P  # noqa: E402
 
 class QwenEncoder:
     def __init__(self, model: str, revision: str | None, max_len: int, batch_size: int = 64):
+        import torch
         from sentence_transformers import SentenceTransformer
-        self.m = SentenceTransformer(model, revision=revision)
+        fp16 = torch.cuda.is_available()          # fp16 on GPU (about 2x faster); fp32 elsewhere
+        kw = {"model_kwargs": {"dtype": torch.float16}} if fp16 else {}
+        self.m = SentenceTransformer(model, revision=revision, **kw)
         self.m.max_seq_length = max_len
-        self.name = f"{model}@{revision}|max_len={max_len}"
+        self.name = f"{model}@{revision}|max_len={max_len}" + ("|fp16" if fp16 else "")
         self.batch_size = batch_size
 
     def encode(self, texts, prompt=None):

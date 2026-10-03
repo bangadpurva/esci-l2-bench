@@ -30,8 +30,8 @@ compare as L2 rerankers for product search, on precision, latency and cost?
 
 ## Pipeline (fixed)
 
-1. **L1:** Qwen/Qwen3-Embedding-0.6B (revision `97b0c614…`), products embedded without a
-   prompt and cut to 512 tokens; queries embedded with the instruction
+1. **L1:** Qwen/Qwen3-Embedding-0.6B (revision `97b0c614…`, fp16 on GPU), products embedded
+   without a prompt and cut to 512 tokens; queries embedded with the instruction
    "Given a product search query, retrieve products that match what the shopper asks for".
    FAISS HNSW (M 32, efSearch 512) over all 1,215,854 US products, top-100.
    **Gate:** ANN overlap with exact search at 100 must be at least 95% on validation.
