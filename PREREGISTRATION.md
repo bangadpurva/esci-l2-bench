@@ -105,8 +105,9 @@ be recorded here before its test run.
 | `pools_test_retrieved.parquet` | `aba1d03fff960f02dc071a929738ac224f169eb760c3b4efa67fb214abdb65b6` |
 | `pools_test_judged.parquet` | `78e53c70bff8e07cdeade730784d8153feeb23fd0c456937cd44357e3fdc041a` |
 | `eval_users_test_{retrieved,judged}.parquet` (same 1,000 queries) | `45f275f196d912e6855c8ba861553b9b72fb7adf4b3a234365210312d2023a03` |
+| `pools_valid_retrieved.parquet` | `e920da0e6884592a90656168ec5853567356f95f99b3dbaf8014cb36fcc0a91b` |
 | `pools_valid_judged.parquet` | `34f15714a5d9b889f846834baa33175cddfe846b32202b35c4079878d104b10c` |
-| `eval_users_valid_judged.parquet` | `5f373d89308861e2bcc915f252a6cbd9dc10ca179821d3df49d44637fa79f651` |
+| `eval_users_valid_{retrieved,judged}.parquet` (same 500 queries) | `5f373d89308861e2bcc915f252a6cbd9dc10ca179821d3df49d44637fa79f651` |
 
 Test L1 at freeze: ANN overlap@100 0.974 (gate passed); recall of E@100 0.498; queries with an E
 in the top 100 0.806; judged@10 0.248. Identical to the dry run.
