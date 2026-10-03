@@ -1,0 +1,28 @@
+# Amazon ESCI (Shopping Queries Dataset): query -> content ANN top-100 -> L2 rerankers.
+# See PREREGISTRATION.md. Edits after the first freeze must be recorded there.
+dataset:
+  source: amazon-science/esci-data (Git LFS, sha256-checked)
+  locale: us
+  subset: small_version == 1      # official Task 1 ranking subset
+  test_queries: 1000              # random sample of the test split
+  valid_queries: 500              # random sample of the train split (never used for fine-tuning)
+  seed: 20261003
+
+l1:
+  encoder: Qwen/Qwen3-Embedding-0.6B
+  revision: 97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3
+  max_item_tokens: 512            # product text cut for embedding (title and brand first)
+  batch_size: 64
+  query_instruction: Given a product search query, retrieve products that match what the shopper asks for
+  index: hnsw                     # FAISS HNSW, M=32, efSearch=512
+  min_ann_overlap: 0.95           # gate vs exact search on validation
+  top_m: 100
+
+l2:
+  item_tokens: 256                # product text cut for rerankers (same text for every model)
+  query_tokens: 64
+  template: esci_v1
+
+metrics:
+  primary: p@10                   # strict: relevant = E, unjudged = not relevant
+  baseline: l1_order

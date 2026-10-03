@@ -1,0 +1,14 @@
+# Search framing for ESCI. Frozen before any ESCI run; edits change template_sha256.
+id: esci_v1
+question: >-
+  Does this product exactly match what the shopper's search query asks for?
+true_means: >-
+  It is the kind of product the query asks for and meets every requirement stated in the
+  query, such as brand, model, size, quantity, compatibility, and any "without" or "not".
+false_means: >-
+  It is a different kind of product, misses or contradicts a stated requirement, or is only
+  an accessory, part, or substitute for what was asked.
+# Qwen3-Reranker task instruction (its card asks for a one-line instruct)
+instruction: >-
+  Given a product search query, judge whether the product exactly matches what the query asks for
+state_labels: [Search query, Candidate product]

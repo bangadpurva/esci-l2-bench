@@ -1,0 +1,11 @@
+name: clef_flash
+family: decision
+backend: clef
+model_version: "@cf/cloudflare/clef-flash"   # same $0.24/M input tokens as clef
+scoring_mode: per_pair      # fall back to fan_out (<=64 questions) if rate-limited
+template: yes_no_v1
+max_questions_per_request: 64
+concurrency: 16             # TODO: set from Clef's rate limit once known
+price_per_m_input: 0.24   # USD, Workers AI pricing page
+api_key_env: CLOUDFLARE_API_TOKEN
+account_id_env: CLOUDFLARE_ACCOUNT_ID

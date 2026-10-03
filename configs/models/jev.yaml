@@ -1,0 +1,10 @@
+name: jev
+family: decision
+backend: jev
+model_version: jev-1.13.0   # pinned; never jev-latest (the backend refuses aliases)
+endpoint: https://api.typesafe.ai/v1/systemone
+scoring_mode: per_pair
+template: yes_no_v1
+concurrency: 32             # observed cap ~12 req/s: 96 only queued (8 s/call) and timed out
+api_key_env: TYPESAFE_API_KEY
+price_per_m_input: 0.042   # USD per docs.typesafe.ai/models; output tokens free

@@ -1,0 +1,8 @@
+name: clm
+family: decision_contrastive
+backend: clm
+model_version: sekkit/CLM-v0.1-8B (contrastive-lm), encoder Qwen/Qwen3-8B via vLLM pooling
+emb_url: http://127.0.0.1:8090/v1/embeddings
+engine_kwargs: {}
+encoder: Qwen/Qwen3-8B
+max_input_tokens: 2048

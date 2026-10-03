@@ -1,0 +1,8 @@
+name: qwen3_reranker
+family: cross_encoder
+hf_model: Qwen/Qwen3-Reranker-0.6B
+revision: e61197ed45024b0ed8a2d74b80b4d909f1255473   # HF main as of 2026-04-16
+score: p_yes
+template: yes_no_v1       # question used as the task instruction
+batch_size: 32
+max_length: 512
