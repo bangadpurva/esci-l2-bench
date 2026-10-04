@@ -63,3 +63,18 @@ L1 order, random order within the list, and the label oracle (ceiling), as for E
 Test: 299 queries, 158,229 labels, median 221 labels and 28 Exact per query; label shares
 Partial 0.60, Irrelevant 0.27, Exact 0.13. Validation: 80 queries, 42,148 labels. All test
 labels refer to products in the catalog.
+
+## Frozen lists (2026-10-03, A40, commit 209c214 code)
+
+| File | sha256 |
+|---|---|
+| `pools_test_retrieved.parquet` | `b87fb97c9fed154bdf0b0786ac00f73693221b9add9a233ddcf1aa3e44af63e6` |
+| `eval_users_test_{retrieved,judged}.parquet` (same 299 queries) | `fba350c18cb141cf077bda43e14b15137feffaedb04defe24e910b39f8c91d54` |
+| `pools_test_judged.parquet` (not scored) | `0860664f2bd27043e8dd06145f19c85b1db4afad08fe9e28714be49cbe419b3c` |
+| `pools_valid_retrieved.parquet` | `dbca184a39b0167ac5de64a95d0545a6e8e66c9540f4eb85c3da275abb8c6a94` |
+| `eval_users_valid_{retrieved,judged}.parquet` (same 80 queries) | `40f9c56a227ad8b5a0e13fb74b854b420456c34efd025b27bd53825939b31c09` |
+| `pools_valid_judged.parquet` (not scored) | `bcbd65b77440b37704711fd6a30d11d2b27b3f6ffab81bb0834979dad7625e49` |
+
+Test L1 at freeze (identical to the dry run): judged@10 0.870, judged@100 0.708; recall of Exact
+at 100 0.624; queries with an Exact in the top 100 0.940. On ESCI the same figures were 0.248,
+0.075, 0.498 and 0.806, which is the label-completeness gain this study was designed for.
