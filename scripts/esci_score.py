@@ -61,7 +61,8 @@ def build(model: str, a, cfg_dir: Path, template: str):
         from recl2bench.rerankers.clm import CLMReranker
         c = mcfg("clm")
         return (CLMReranker(c["emb_url"], engine_kwargs=c.get("engine_kwargs") or {},
-                            model_version=c["model_version"]), c, None, None, None)
+                            model_version=c["model_version"], instructions=t["question"]),
+                c, tsha, None, None)
     raise ValueError(model)
 
 

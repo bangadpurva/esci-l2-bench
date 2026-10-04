@@ -44,7 +44,8 @@ compare as L2 rerankers for product search, on precision, latency and cost?
      (`noul`) question, "Does this product exactly match what the shopper's search query
      asks for?", state headed "Search query" / "Candidate product"; backoff on 429/529 and
      network errors.
-   - CLM-v0.1-8B via `contrastive-lm` `Engine.rank(query, candidates)`, one call per
+   - CLM-v0.1-8B via `contrastive-lm` `Engine.rank(query, candidates, instructions)`, with
+     the same `esci_v1` question as `instructions` (added before CLM's first run), one call per
      query, Qwen3-8B served by vLLM (pooling, max length 2,048).
 
 Amendment (2026-10-03, still before any model run on ESCI): bge-reranker-v2-m3 was dropped

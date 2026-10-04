@@ -13,8 +13,8 @@ class FakeEngine:
     def __init__(self, with_index):
         self.with_index, self.calls = with_index, []
 
-    def rank(self, query, candidates):
-        self.calls.append((query, list(candidates)))
+    def rank(self, query, candidates, instructions=None):
+        self.calls.append((query, list(candidates), instructions))
         probs = [0.1 * (i + 1) for i in range(len(candidates))]
         order = sorted(range(len(candidates)), key=lambda i: -probs[i])
         return [{"rank": r + 1, "candidate": candidates[i], "prob": probs[i], **({"index": i} if self.with_index else {})}
@@ -24,12 +24,13 @@ class FakeEngine:
 @pytest.mark.parametrize("with_index", [True, False])
 def test_clm_maps_scores_back_one_call_per_query(with_index):
     eng = FakeEngine(with_index)
-    rr = CLMReranker("http://x", engine=eng)
+    rr = CLMReranker("http://x", engine=eng, instructions="Exact match?")
     p = UserProfile("q1", "", (), (), "80 cfm fan")
     c = [CandidateItem(f"i{k}", k, 1.0, f"text {k}") for k in range(4)]
     res = rr.rerank(p, c)
     assert res.scores == pytest.approx([0.1, 0.2, 0.3, 0.4]) and res.failures == 0
     assert len(eng.calls) == 1 and eng.calls[0][0] == "80 cfm fan"
+    assert eng.calls[0][2] == "Exact match?"
 
 
 def test_decision_models_get_search_framing(monkeypatch):
