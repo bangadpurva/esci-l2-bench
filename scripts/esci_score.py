@@ -20,6 +20,7 @@ import pandas as pd
 import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+from recl2bench.esci import data as D  # noqa: E402
 from recl2bench.esci import metrics as EM  # noqa: E402
 from recl2bench.esci import score as ES  # noqa: E402
 from recl2bench import pools as P  # noqa: E402
@@ -87,10 +88,13 @@ def main(argv=None):
     ap.add_argument("--resamples", type=int, default=10_000)
     a = ap.parse_args(argv)
     cfg = yaml.safe_load(Path(a.config).read_text())
+    D.GAINS.clear()                             # WANDS: Exact / Partial / Irrelevant gains
+    D.GAINS.update(cfg.get("metrics", {}).get("gains") or D.ESCI_GAINS)
 
     if a.report:
         runs = ES.load_runs(Path(a.runs_dir), a.split, a.setting)
-        table, md = ES.build_report(runs, a.split, a.setting, a.resamples)
+        table, md = ES.build_report(runs, a.split, a.setting, a.resamples,
+                                     name=cfg.get("dataset", {}).get("name", "ESCI"))
         out = Path(a.results_dir)
         out.mkdir(parents=True, exist_ok=True)
         stem = out / f"{a.split}_{a.setting}"

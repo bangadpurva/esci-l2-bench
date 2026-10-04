@@ -1,0 +1,28 @@
+# Wayfair WANDS: query -> content top-100 -> the same L2 rerankers as ESCI.
+# See PREREGISTRATION_WANDS.md. Edits after the first freeze must be recorded there.
+dataset:
+  name: WANDS
+  source: wayfair/WANDS (raw GitHub, sha256-checked)
+  queries: only queries with >= 1 Exact label (379 of 480)
+  valid_queries: 80               # random sample; the rest are test
+  seed: 20261003
+
+l1:                               # identical to ESCI except the index
+  encoder: Qwen/Qwen3-Embedding-0.6B
+  revision: 97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3
+  max_item_tokens: 512
+  batch_size: 64
+  query_instruction: Given a product search query, retrieve products that match what the shopper asks for
+  index: exact                    # 43K products: exact search, no ANN gate needed
+  min_ann_overlap: 0.95
+  top_m: 100
+
+l2:                               # identical to ESCI
+  item_tokens: 256
+  query_tokens: 64
+  template: esci_v1
+
+metrics:
+  primary: p@10                   # strict: relevant = Exact, unjudged = not relevant
+  baseline: l1_order
+  gains: {E: 1.0, S: 0.5, I: 0.0} # Exact / Partial / Irrelevant

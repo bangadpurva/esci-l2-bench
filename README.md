@@ -65,3 +65,22 @@ Validation runs (for fusion later): prefix any model stage with `SPLIT=valid`.
 | Clef Flash | depends on Cloudflare limits | ~$5–8 |
 
 The judged setting is about 6× smaller (median 16 candidates per query).
+
+## Second dataset: WANDS (Wayfair)
+
+Same pipeline, near-complete labels (about 220 labelled products per query). Design:
+[`PREREGISTRATION_WANDS.md`](PREREGISTRATION_WANDS.md). Prefix every stage with `DATASET=wands`;
+only the retrieved setting is scored.
+
+```bash
+DATASET=wands bash scripts/run_esci.sh download
+DATASET=wands bash scripts/run_esci.sh prepare
+DATASET=wands bash scripts/run_esci.sh l1-dryrun     # GPU, a few minutes (43K products). STOP
+DATASET=wands bash scripts/run_esci.sh l1-freeze
+DATASET=wands bash scripts/run_esci.sh baselines
+DATASET=wands bash scripts/run_esci.sh qwen3
+DATASET=wands bash scripts/run_esci.sh jev           # also clef, clm (after clm-serve)
+DATASET=wands bash scripts/run_esci.sh report
+```
+
+299 test queries × 100 candidates = about 30K pairs: Jev about 45 min and $0.75.

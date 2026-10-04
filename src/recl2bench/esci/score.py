@@ -61,7 +61,7 @@ def load_runs(runs_dir: Path, split: str, setting: str) -> dict[str, dict]:
 
 
 def build_report(runs: dict[str, dict], split: str, setting: str, n_resamples: int = 10_000,
-                 seed: int = 0) -> tuple[pd.DataFrame, str]:
+                 seed: int = 0, name: str = "ESCI") -> tuple[pd.DataFrame, str]:
     if "l1_order" not in runs:
         raise ValueError("score l1_order first; every comparison is against it")
     pools = {r["manifest"]["pool_sha256"] for r in runs.values()}
@@ -94,7 +94,7 @@ def build_report(runs: dict[str, dict], split: str, setting: str, n_resamples: i
         rows.append(row)
     t = pd.DataFrame(rows).sort_values(PRIMARY, ascending=False).reset_index(drop=True)
 
-    lines = [f"# ESCI results: {split}, {setting} lists, {len(queries)} queries", "",
+    lines = [f"# {name} results: {split}, {setting} lists, {len(queries)} queries", "",
              f"Pool sha256 `{pools.pop()[:16]}…` · primary P@10 (relevant = Exact; unjudged = not relevant) · "
              f"paired bootstrap ({n_resamples:,}) vs L1 order, Holm-corrected", "",
              "| Model | P@10 | Δ vs L1 [CI] | p (Holm) | Beats L1 | P@5 | P@10 E+S | P@10 judged-only | judged@10 | NDCG@10 | p50 / p95 s | $ / 1K q |",

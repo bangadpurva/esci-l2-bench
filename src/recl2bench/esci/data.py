@@ -15,7 +15,8 @@ import pandas as pd
 
 LABELS = ("E", "S", "C", "I")
 # Official ESCI Task 1 gains (Reddy et al., 2022)
-GAINS = {"E": 1.0, "S": 0.1, "C": 0.01, "I": 0.0}
+ESCI_GAINS = {"E": 1.0, "S": 0.1, "C": 0.01, "I": 0.0}
+GAINS = dict(ESCI_GAINS)   # the active gains; esci_score.py sets them from the dataset config
 
 EXAMPLES = "shopping_queries_dataset_examples.parquet"
 PRODUCTS = "shopping_queries_dataset_products.parquet"

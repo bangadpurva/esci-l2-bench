@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
-# ESCI benchmark: query -> content ANN top-100 -> L2 rerankers. One command per stage.
+# Product-search benchmark (ESCI or WANDS): query -> content top-100 -> L2 rerankers.
 #
 #   bash scripts/run_esci.sh <stage>
 #
 # Environment (defaults in brackets):
+#   DATASET      esci | wands                         [esci]
 #   SPLIT        test | valid                         [test]
 #   SETTING      retrieved (L1 top-100) | judged       [retrieved]
 #   CONCURRENCY  parallel API calls for clef / jev     [model config]
 #
 # Stages (STOP = send the output for review before continuing):
 #   check        GPU, packages, tests
-#   download     ESCI parquet files from the official repo (sha256-checked)
-#   prepare      sample 1,000 test / 500 valid queries, labels, product text      STOP
+#   download     dataset files from the official repo (sha256-checked)
+#   prepare      queries, labels, product text                                    STOP
 #   l1-dryrun    embed catalog + queries, top-100, ANN gate, diagnostics (GPU)     STOP
 #   l1-freeze    freeze both list settings (asks you to type FREEZE)
 #   baselines    l1_order, random, oracle on SPLIT/SETTING
@@ -21,40 +22,43 @@
 #   clm-setup    pip install contrastive-lm + vllm (GPU box)
 #   clm-serve    start vLLM (Qwen3-8B pooling) in the background, wait until ready
 #   clm          CLM-v0.1-8B (needs clm-serve)
-#   report       results table -> results/esci/<split>_<setting>.md
+#   report       results table -> results/<dataset>/<split>_<setting>.md
 #   backup       archive lists, labels, runs, results, logs (not raw data or embeddings)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 STAGE="${1:-}"
-[ -n "$STAGE" ] || { sed -n '2,30p' "$0"; exit 1; }
+[ -n "$STAGE" ] || { sed -n '2,31p' "$0"; exit 1; }
 if [ -f .env ]; then set -a; . ./.env; set +a; fi
 SPLIT="${SPLIT:-test}"
 SETTING="${SETTING:-retrieved}"
+DS="${DATASET:-esci}"
+[ -f "configs/$DS.yaml" ] || { echo "unknown DATASET: $DS"; exit 1; }
+PATHS=(--config "configs/$DS.yaml" --proc "data/$DS/processed" --pools-dir "data/$DS/pools")
 export HF_HOME="${HF_HOME:-$PWD/.hf_cache}"
 mkdir -p logs
-LOG="logs/esci_${STAGE}_${SPLIT}_${SETTING}_$(date +%Y%m%dT%H%M%S).log"
+LOG="logs/${DS}_${STAGE}_${SPLIT}_${SETTING}_$(date +%Y%m%dT%H%M%S).log"
 HW="$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1 || true)"
 HW="${HW:-$(uname -m)} $(hostname)"
 run() { echo "+ $*" | tee -a "$LOG"; "$@" 2>&1 | tee -a "$LOG"; }
 read -r -a EXTRA <<< "${ESCI_ARGS:-}"
-SC=(python scripts/esci_score.py --split "$SPLIT" --setting "$SETTING" --hardware "$HW"
+SC=(python scripts/esci_score.py "${PATHS[@]}" --runs-dir "runs/$DS" --results-dir "results/$DS" --split "$SPLIT" --setting "$SETTING" --hardware "$HW"
     ${CONCURRENCY:+--concurrency "$CONCURRENCY"} ${EXTRA[@]+"${EXTRA[@]}"})
 
-echo "stage=$STAGE SPLIT=$SPLIT SETTING=$SETTING log=$LOG" | tee -a "$LOG"
+echo "dataset=$DS stage=$STAGE SPLIT=$SPLIT SETTING=$SETTING log=$LOG" | tee -a "$LOG"
 case "$STAGE" in
   check)
     run nvidia-smi || true
     run python -m pytest -q ;;
   download)
-    run bash scripts/esci_download.sh data/esci/raw ;;
+    run bash "scripts/${DS}_download.sh" "data/$DS/raw" ;;
   prepare)
-    run python scripts/esci_prepare.py ${EXTRA[@]+"${EXTRA[@]}"} ;;
+    run python "scripts/${DS}_prepare.py" --raw "data/$DS/raw" --out "data/$DS/processed" ${EXTRA[@]+"${EXTRA[@]}"} ;;
   l1-dryrun)
-    run python scripts/esci_l1.py ${EXTRA[@]+"${EXTRA[@]}"} ;;
+    run python scripts/esci_l1.py "${PATHS[@]}" ${EXTRA[@]+"${EXTRA[@]}"} ;;
   l1-freeze)
-    echo "Freezing ESCI lists (retrieved + judged, valid + test). This cannot be undone."
+    echo "Freezing $DS lists (retrieved + judged, valid + test). This cannot be undone."
     if [ "${FORCE:-}" != "1" ]; then read -r -p "Type FREEZE to continue: " ans; [ "$ans" = "FREEZE" ] || exit 1; fi
-    run python scripts/esci_l1.py --freeze ${EXTRA[@]+"${EXTRA[@]}"} ;;
+    run python scripts/esci_l1.py "${PATHS[@]}" --freeze ${EXTRA[@]+"${EXTRA[@]}"} ;;
   baselines)
     for m in l1_order random oracle; do run "${SC[@]}" --model "$m"; done ;;
   qwen3|clm)
@@ -63,7 +67,7 @@ case "$STAGE" in
     run "${SC[@]}" --model "$STAGE" ;;
   clef-smoke|jev-smoke)
     m="${STAGE%-smoke}"
-    run python scripts/esci_score.py --split valid --setting "$SETTING" --hardware "$HW" --model "$m" --limit-users 20 \
+    run python scripts/esci_score.py "${PATHS[@]}" --runs-dir "runs/$DS" --split valid --setting "$SETTING" --hardware "$HW" --model "$m" --limit-users 20 \
         ${CONCURRENCY:+--concurrency "$CONCURRENCY"} ;;
   clm-setup)
     run python -m pip install -q contrastive-lm vllm
@@ -79,15 +83,15 @@ case "$STAGE" in
     done
     echo "vLLM not ready after 30 min; see logs/vllm.log"; exit 1 ;;
   report)
-    run python scripts/esci_score.py --report --split "$SPLIT" --setting "$SETTING" ;;
+    run "${SC[@]}" --report ;;
   backup)
     mkdir -p backups
-    OUT="backups/esci_$(date +%Y%m%dT%H%M%S).tar.gz"
+    OUT="backups/${DS}_$(date +%Y%m%dT%H%M%S).tar.gz"
     run tar czf "$OUT" --exclude='*.npy' --exclude='products.parquet' \
-        data/esci/processed data/esci/pools $( [ -d runs/esci ] && echo runs/esci ) \
-        $( [ -d results/esci ] && echo results/esci ) logs
+        "data/$DS/processed" "data/$DS/pools" $( [ -d "runs/$DS" ] && echo "runs/$DS" ) \
+        $( [ -d "results/$DS" ] && echo "results/$DS" ) logs
     ls -lh "$OUT"; echo "Copy it off this machine before destroying the instance." ;;
   *)
-    echo "unknown stage: $STAGE"; sed -n '2,30p' "$0"; exit 1 ;;
+    echo "unknown stage: $STAGE"; sed -n '2,31p' "$0"; exit 1 ;;
 esac
 echo "done: $STAGE (log: $LOG)"
