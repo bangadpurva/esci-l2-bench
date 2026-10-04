@@ -66,7 +66,8 @@ case "$STAGE" in
     run python scripts/esci_score.py --split valid --setting "$SETTING" --hardware "$HW" --model "$m" --limit-users 20 \
         ${CONCURRENCY:+--concurrency "$CONCURRENCY"} ;;
   clm-setup)
-    run python -m pip install -q contrastive-lm vllm ;;
+    run python -m pip install -q contrastive-lm vllm
+    run clm-download ;;          # the 75 MB CLM-v0.1-8B head; Engine does not fetch it itself
   clm-serve)
     if curl -sf http://127.0.0.1:8090/v1/models >/dev/null; then echo "vLLM already serving on :8090"; exit 0; fi
     nohup vllm serve Qwen/Qwen3-8B --served-model-name qwen3-8b --runner pooling \
