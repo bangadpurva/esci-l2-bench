@@ -96,6 +96,12 @@ and the results show a consistent Jev > Qwen3 ordering whose significance the pa
 These tests were not pre-registered and are reported as exploratory; no pre-registered
 result changes.
 
+### Amendment 4 (2026-10-04, after all other test results were seen; Clef never run on test)
+
+Clef Flash is removed from the study. Cloudflare's free tier rate-limited every attempt, so no
+test run was completed; its code path stays in the repository but no Clef result is reported.
+No other model, setting, metric or rule changes.
+
 ## Baselines
 
 L1 order (embedding similarity), random order within the list, and an oracle that orders by
