@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from ..eval.bootstrap import compare_to_baseline
+from ..eval.bootstrap import bootstrap_p_value, compare_to_baseline, holm, paired_bootstrap
 from ..rerankers.base import Reranker, RerankResult
 from ..rerankers.text import cut
 from .data import GAINS
@@ -112,4 +112,35 @@ def build_report(runs: dict[str, dict], split: str, setting: str, n_resamples: i
     lines += ["", "Oracle orders by ESCI gain (uses labels); L1 order is the baseline. "
               "Neither is in the Holm family. Low judged@10 means many top-10 items carry no label; "
               "compare P@10 with the judged-only column before drawing conclusions."]
+    lines += head_to_head(aligned, n_resamples, seed)
     return t, "\n".join(lines) + "\n"
+
+
+def head_to_head(aligned: dict[str, pd.DataFrame], n_resamples: int, seed: int,
+                 metrics=("p@10", "p@5")) -> list[str]:
+    """Paired bootstrap between every pair of rerankers (exploratory, added after results)."""
+    models = sorted(m for m in aligned if m not in NO_TEST and m != "random")
+    pairs = [(a, b) for i, a in enumerate(models) for b in models[i + 1:]]
+    if not pairs:
+        return []
+    rows = []
+    for j, (a, b) in enumerate(pairs):
+        for k, met in enumerate(metrics):
+            x, y = aligned[a][met].to_numpy(), aligned[b][met].to_numpy()
+            if x.mean() < y.mean():
+                a_, b_, x, y = b, a, y, x
+            else:
+                a_, b_ = a, b
+            mean, boot = paired_bootstrap(x, y, n_resamples, seed + 100 + 10 * j + k)
+            lo, hi = np.quantile(boot, [0.025, 0.975])
+            rows.append([f"{a_} vs {b_}", met, mean, lo, hi, bootstrap_p_value(boot)])
+    for r, p in zip(rows, holm([r[5] for r in rows])):
+        r.append(p)
+    out = ["", "## Head to head (exploratory)", "",
+           f"Paired bootstrap ({n_resamples:,}) of the first model minus the second; 95% percentile CI; "
+           f"Holm across all {len(rows)} comparisons in this table.", "",
+           "| Comparison | Metric | Δ [95% CI] | p (Holm) | Significant |", "|---|---|---|---|---|"]
+    for name, met, mean, lo, hi, _, ph in rows:
+        out.append(f"| {name} | {met.upper()} | {mean:+.4f} [{lo:+.4f}, {hi:+.4f}] | {ph:.4f} | "
+                   f"{'yes' if ph < 0.05 else 'no'} |")
+    return out

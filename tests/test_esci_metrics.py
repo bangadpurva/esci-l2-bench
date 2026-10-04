@@ -47,3 +47,21 @@ def test_product_text_strips_html_and_keeps_title_first():
     assert "Brand: Acme" in t and "Features: Quiet; Energy Star" in t and "Description: Great fan" in t
     assert "<" not in t and "Color" not in t
     assert clean(float("nan")) == ""
+
+
+def test_head_to_head_orders_and_tests_pairs():
+    import numpy as np
+    import pandas as pd
+    from recl2bench.esci.score import head_to_head
+    rng = np.random.default_rng(0)
+    base = rng.random(400)
+    mk = lambda shift: pd.DataFrame({"p@10": np.clip(base + shift + rng.normal(0, .01, 400), 0, 1),
+                                     "p@5": np.clip(base + shift, 0, 1)})
+    aligned = {"l1_order": mk(0), "oracle": mk(.5), "random": mk(-.3), "qwen3": mk(.02), "jev": mk(.05),
+               "clm": mk(.0499)}
+    lines = head_to_head(aligned, 2000, 0)
+    rows = [l for l in lines if l.startswith("| ") and " vs " in l]
+    assert len(rows) == 6                                             # 3 rerankers -> 3 pairs x 2 metrics
+    assert not any("random" in r or "oracle" in r or "l1_order" in r for r in rows)
+    assert any(r.startswith("| jev vs qwen3 | P@10 | +") and r.endswith("| yes |") for r in rows)
+    assert all("[+" in r or "[-" in r for r in rows)

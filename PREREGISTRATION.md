@@ -87,6 +87,15 @@ this decision: only L1 diagnostics (ANN overlap@100 0.974; recall of E@100 0.498
 with an E in the top 100 0.806; judged@10 0.248). No reranker, baseline or label-dependent
 ranking output existed.
 
+### Amendment 3 (2026-10-04, after all test results except Clef were seen)
+
+Added an exploratory head-to-head section to every report: a paired bootstrap of P@10 and P@5
+between each pair of rerankers (Holm across the comparisons in that report, 95% percentile
+CIs). It was added because the pre-registered rule only tests each model against L1 order,
+and the results show a consistent Jev > Qwen3 ordering whose significance the paper needs.
+These tests were not pre-registered and are reported as exploratory; no pre-registered
+result changes.
+
 ## Baselines
 
 L1 order (embedding similarity), random order within the list, and an oracle that orders by

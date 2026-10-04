@@ -54,6 +54,15 @@ would be long (median about 220, up to several thousand products per query).
 - **Cross-dataset claim:** a statement such as "model A ranks above model B on both
   datasets" requires the difference to have the same sign on ESCI (both settings) and WANDS.
 
+### Amendment 3 (2026-10-04, after all test results except Clef were seen)
+
+Added an exploratory head-to-head section to every report: a paired bootstrap of P@10 and P@5
+between each pair of rerankers (Holm across the comparisons in that report, 95% percentile
+CIs). It was added because the pre-registered rule only tests each model against L1 order,
+and the results show a consistent Jev > Qwen3 ordering whose significance the paper needs.
+These tests were not pre-registered and are reported as exploratory; no pre-registered
+result changes.
+
 ## Baselines
 
 L1 order, random order within the list, and the label oracle (ceiling), as for ESCI.
