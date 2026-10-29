@@ -282,3 +282,15 @@ def test_ablation_table_holm_stars_and_missing_cells(ws):
     assert "p_holm" in r and r["p_holm"] >= r["p"] - 1e-12          # Holm never lowers a p-value
     assert ("$^{*}$" in tex) == any(v["p_holm"] < 0.05 for k, v in T.NUMBERS.items() if k.startswith("ablation["))
     assert "n/a" in tex                                              # wordings without runs are flagged, not dropped
+
+
+def test_find_runs_ignores_runs_with_failed_calls(ws, capsys):
+    root, worlds = ws
+    pools, truth = worlds["test"]
+    d = _write_run(root / "runs/esci", "jev", "test", "judged", pools, truth, "weak", np.random.default_rng(9),
+                   started="2026-10-30T10:00:00+00:00")          # newer than the good run
+    m = json.loads((d / "manifest.json").read_text()); m["failures"] = 5
+    (d / "manifest.json").write_text(json.dumps(m))
+    runs = R.find_runs([root / "runs/esci"], "test", "judged")
+    assert runs["jev"]["manifest"]["started_at"] == "2026-10-29T10:00:00+00:00"   # falls back to the clean run
+    assert "ignoring" in capsys.readouterr().out

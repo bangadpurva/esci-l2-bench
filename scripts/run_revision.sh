@@ -18,14 +18,17 @@
 # MODELS="jev" or MODELS="qwen3" limits ablation / fusion-inputs to one model (default: both), so Jev (network-bound) can
 # run on a laptop while Qwen3 (needs a GPU to be fast) runs on a pod. Merge the two runs_rev directories before `tables`.
 #
+# Safe to rerun: finished failure-free runs are skipped, a run with any failed call stops the chain (exit 3) and is ignored
+# by the analyses. Jev needs API credits; HTTP 402 means the balance is empty.
+#
 # Needs the same environment as run_esci.sh (.env with TYPESAFE_API_KEY, the frozen lists, GPU for local models).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 PHASE="${1:-}"
-[ -n "$PHASE" ] || { sed -n '2,23p' "$0"; exit 1; }
+[ -n "$PHASE" ] || { sed -n '2,26p' "$0"; exit 1; }
 go() { # DATASET SPLIT SETTING STAGE [ESCI_ARGS]
   echo "=== $1 $2 $3 $4 ${5:-}"
-  DATASET="$1" SPLIT="$2" SETTING="$3" RUNS_DIR="runs/$1_rev" ESCI_ARGS="${5:-}" bash scripts/run_esci.sh "$4"
+  DATASET="$1" SPLIT="$2" SETTING="$3" RUNS_DIR="runs/$1_rev" ESCI_ARGS="--fail-on-failures --skip-if-done ${5:-}" bash scripts/run_esci.sh "$4"
 }
 SETTINGS=("esci judged" "esci retrieved" "wands retrieved")
 TEMPLATES=(esci_v1p esci_v2 esci_v3 esci_v4)
@@ -62,5 +65,5 @@ case "$PHASE" in
   test-baselines) test_baselines ;;
   tables) tables ;;
   all) baselines_valid; fusion_inputs; ablation; clm_controls; test_baselines; tables ;;
-  *) echo "unknown phase: $PHASE"; sed -n '2,23p' "$0"; exit 1 ;;
+  *) echo "unknown phase: $PHASE"; sed -n '2,26p' "$0"; exit 1 ;;
 esac

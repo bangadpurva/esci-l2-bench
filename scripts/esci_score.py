@@ -125,6 +125,8 @@ def main(argv=None):
     ap.add_argument("--template", help="prompt template id (revision variants); default: config l2.template")
     ap.add_argument("--graded-with", help="second template; score = P(yes|template) + P(yes|graded-with)")
     ap.add_argument("--clm-shuffle-seed", type=int, help="CLM candidate-order control")
+    ap.add_argument("--fail-on-failures", action="store_true", help="exit 3 if any call failed (the run is kept but ignored by the revision analyses)")
+    ap.add_argument("--skip-if-done", action="store_true", help="do nothing if a complete failure-free run of this model/split/setting already exists")
     ap.add_argument("--tokenizer", help="'whitespace' for tests")
     ap.add_argument("--config", default="configs/esci.yaml")
     ap.add_argument("--configs", default="configs")
@@ -153,6 +155,12 @@ def main(argv=None):
     if not a.model:
         ap.error("--model or --report is required")
 
+    if a.skip_if_done and not a.limit_users:
+        from recl2bench import revision as RV
+        tag0 = run_name(a, a.template or cfg["l2"]["template"])
+        if tag0 in RV.find_runs([a.runs_dir], a.split, a.setting):
+            print(f"skip: a complete failure-free run of {tag0} ({a.split}, {a.setting}) already exists in {a.runs_dir}")
+            return None
     proc, pdir = Path(a.proc), Path(a.pools_dir)
     pools, pool_sha = P.load(pdir / f"pools_{a.split}_{a.setting}.parquet")
     keep, cohort_sha = P.load_eval_cohort(pdir / f"eval_users_{a.split}_{a.setting}.parquet")
@@ -215,6 +223,9 @@ def main(argv=None):
           f"P@5={per_user['p@5'].mean():.4f} NDCG@10={per_user['ndcg@10'].mean():.4f} "
           f"judged@10={per_user['judged@10'].mean():.3f} failures={totals['failures']} "
           f"p50/p95={per_user.latency_s.quantile(.5):.3f}/{per_user.latency_s.quantile(.95):.3f}s")
+    if a.fail_on_failures and totals["failures"]:
+        print(f"FAILED: {totals['failures']} calls failed; this run will be ignored. Fix the cause (credits? network?) and rerun.", file=sys.stderr)
+        sys.exit(3)
     return out
 
 

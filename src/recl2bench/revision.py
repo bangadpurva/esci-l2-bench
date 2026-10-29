@@ -37,6 +37,9 @@ def find_runs(runs_dirs: Iterable[str | Path], split: str, setting: str) -> dict
             if not (mf.exists() and pu.exists()):
                 continue
             m = json.loads(mf.read_text())
+            if int(m.get("failures") or 0) > 0:      # a run with failed calls has NaN scores: never analyse it
+                print(f"[revision] ignoring {d.name}: {m['failures']} failed calls", flush=True)
+                continue
             u = pd.read_parquet(pu)
             if (m.get("setting") != setting or u["split"].iloc[0] != split
                     or int(u.get("limit_users", pd.Series([0])).iloc[0] or 0)):
