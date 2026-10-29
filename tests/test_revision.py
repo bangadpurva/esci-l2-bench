@@ -156,6 +156,10 @@ def test_tables_end_to_end(ws, tmp_path_factory):
     assert pu["ndcg@10"].mean() == pytest.approx(expect)
     nums = json.loads((out / "numbers.json").read_text())
     assert "ndcg_diff[jev-qwen3][ESCI judged]" in nums
+    assert "p_holm" in nums["ndcg_diff[jev-l1_order][ESCI judged]"]
+    delta = (out / "tab_ndcg_delta.tex").read_text()
+    big = nums["ndcg_diff[jev-l1_order][ESCI judged]"]
+    assert ("$^{*}$" in delta) == (big["p_holm"] < 0.05)        # stars exactly where the caption says
     comp = nums["composition[jev][ESCI judged]"]
     assert sum(comp.values()) == pytest.approx(10.0)
     assert (out / "tab_exact_subset.tex").exists()
@@ -260,3 +264,21 @@ def test_run_name_tags_only_revision_variants():
     assert m.run_name(A(template="esci_v2"), "esci_v2") == "jev@esci_v2"
     assert m.run_name(A(template="esci_v1p", graded_with="esci_v5"), "esci_v1p") == "jev@esci_v1p+esci_v5"
     assert m.run_name(A(model="clm", clm_shuffle_seed=1), "esci_v1") == "clm#shuffle1"
+
+
+def test_ablation_table_holm_stars_and_missing_cells(ws):
+    root, worlds = ws
+    import revision_tables as T
+    pools, truth = worlds["valid"]
+    rng = np.random.default_rng(5)
+    for suffix in ("@esci_v2", "@esci_v4"):
+        _write_run(root / "runs/esci_rev", "jev" + suffix, "valid", "judged", pools, truth, "good", rng)
+        _write_run(root / "runs/esci_rev", "qwen3" + suffix, "valid", "judged", pools, truth, "weak", rng)
+    T.NUMBERS.clear(); T.WARN.clear()
+    out = root / "out_abl"
+    T.main(["ablation", "--root", str(root), "--out", str(out), "--resamples", "500"])
+    tex = (out / "tab_ablation.tex").read_text()
+    r = T.NUMBERS["ablation[Paraphrase (v2)][ESCI judged]"]
+    assert "p_holm" in r and r["p_holm"] >= r["p"] - 1e-12          # Holm never lowers a p-value
+    assert ("$^{*}$" in tex) == any(v["p_holm"] < 0.05 for k, v in T.NUMBERS.items() if k.startswith("ablation["))
+    assert "n/a" in tex                                              # wordings without runs are flagged, not dropped

@@ -133,20 +133,20 @@ def t_ndcg(root, out, strict, n):
     if not any(c.has("jev") for c in cs.values()):
         return need(strict, "test runs for ndcg table")
     write(out, "tab_ndcg", ["Model"] + list(cs), rows, "@{}l" + "c" * len(cs))
-    drows = []
-    for name, a, b in [("Jev $-$ embedding order", "jev", "l1_order"),
-                       ("Qwen3-Reranker $-$ embedding order", "qwen3", "l1_order"),
-                       ("Jev $-$ Qwen3-Reranker", "jev", "qwen3")]:
-        cells = []
-        for lab, c in cs.items():
-            if c.has(a) and c.has(b):
-                v = R.align({a: c.per_user(a), b: c.per_user(b)}, "ndcg@10")
-                r = R.diff_ci(v[a], v[b], n)
-                NUMBERS[f"ndcg_diff[{a}-{b}][{lab}]"] = r
-                cells.append(r)
-            else:
-                cells.append(None)
-        drows.append([name] + [fd(r) for r in cells])
+    comps = [("Jev $-$ embedding order", "jev", "l1_order"),
+             ("Qwen3-Reranker $-$ embedding order", "qwen3", "l1_order"),
+             ("Jev $-$ Qwen3-Reranker", "jev", "qwen3")]
+    cell = {}
+    for lab, c in cs.items():
+        have = [(nm, a, b) for nm, a, b in comps if c.has(a) and c.has(b)]
+        if not have:
+            continue
+        vecs = [(nm, R.align({a: c.per_user(a), b: c.per_user(b)}, "ndcg@10"), a, b) for nm, a, b in have]
+        res = R.diff_table([(nm, v[a], v[b]) for nm, v, a, b in vecs], n)   # Holm across the comparisons in this setting
+        for (nm, v, a, b), r in zip(vecs, res):
+            NUMBERS[f"ndcg_diff[{a}-{b}][{lab}]"] = r
+            cell[(nm, lab)] = r
+    drows = [[nm] + [fd(cell.get((nm, lab))) for lab in cs] for nm, _, _ in comps]
     write(out, "tab_ndcg_delta", ["Difference in NDCG@10 [95\\% CI]"] + list(cs), drows, "@{}l" + "c" * len(cs))
 
 
@@ -204,15 +204,7 @@ def t_baselines(root, out, strict, n):
         rows.append(row)
     write(out, "tab_baselines", ["Model"] + ["P@10", "P@5", "NDCG"] * len(cs), rows,
           "@{}l" + "ccc" * len(cs), groups=[(g, 3) for g in cs])
-    drows = []
-    for m in [x for x in models if x not in ("l1_order", "jev")]:
-        cells = []
-        for lab, c in cs.items():
-            if c.has(m) and c.has("jev"):
-                cells.append((lab, m, c))
-            else:
-                cells.append((lab, m, None))
-        drows.append([NAMES[m]] + [MISSING] * len(cs))
+    drows = [[NAMES[m]] + [MISSING] * len(cs) for m in models if m not in ("l1_order", "jev")]
     # Holm across the compared baselines within each setting
     for j, (lab, c) in enumerate(cs.items()):
         pairs = [(m, c.per_user("jev"), c.per_user(m)) for m in models if m not in ("l1_order", "jev") and c.has(m) and c.has("jev")]
@@ -240,17 +232,24 @@ def t_ablation(root, out, strict, n):
             NUMBERS[f"ablation_l1[{lab}]"] = float(c.per_user("l1_order")["p@10"].mean())
     if not cs or not any(c.has("jev") for c in cs.values()):
         return need(strict, "validation runs for the prompt ablation")
-    for vlabel, suffix in VARIANTS:
-        row = [vlabel]
-        for lab, c in cs.items():
+    res = {}
+    for lab, c in cs.items():
+        pairs, means = [], {}
+        for vlabel, suffix in VARIANTS:
             j, q = c.runs.get("jev" + suffix), c.runs.get("qwen3" + suffix)
             if j is None or q is None:
-                row += [MISSING] * 3
                 continue
             v = R.align({"j": j["per_user"], "q": q["per_user"]}, "p@10")
-            r = R.diff_ci(v["j"], v["q"], n)
-            NUMBERS[f"ablation[{vlabel}][{lab}]"] = {"jev": float(v["j"].mean()), "qwen3": float(v["q"].mean()), **r}
-            row += [f3(v["j"].mean()), f3(v["q"].mean()), fd(r)]
+            pairs.append((vlabel, v["j"], v["q"]))
+            means[vlabel] = (float(v["j"].mean()), float(v["q"].mean()))
+        for r in R.diff_table(pairs, n):                                   # Holm across the wordings in this dataset
+            res[(lab, r["name"])] = {**r, "jev": means[r["name"]][0], "qwen3": means[r["name"]][1]}
+            NUMBERS[f"ablation[{r['name']}][{lab}]"] = res[(lab, r["name"])]
+    for vlabel, _ in VARIANTS:
+        row = [vlabel]
+        for lab in cs:
+            r = res.get((lab, vlabel))
+            row += [MISSING] * 3 if r is None else [f3(r["jev"]), f3(r["qwen3"]), fd(r)]
         rows.append(row)
     ref = ["Embedding order"] + sum(([f3(c.per_user("l1_order")["p@10"].mean()) if c.has("l1_order") else MISSING,
                                       "", ""] for c in cs.values()), [])
