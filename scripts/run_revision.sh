@@ -15,11 +15,14 @@
 #   tables            revision_cost + revision_fusion + revision_tables  ->  paper_generated/
 #   all               every phase in order
 #
+# MODELS="jev" or MODELS="qwen3" limits ablation / fusion-inputs to one model (default: both), so Jev (network-bound) can
+# run on a laptop while Qwen3 (needs a GPU to be fast) runs on a pod. Merge the two runs_rev directories before `tables`.
+#
 # Needs the same environment as run_esci.sh (.env with TYPESAFE_API_KEY, the frozen lists, GPU for local models).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 PHASE="${1:-}"
-[ -n "$PHASE" ] || { sed -n '2,20p' "$0"; exit 1; }
+[ -n "$PHASE" ] || { sed -n '2,23p' "$0"; exit 1; }
 go() { # DATASET SPLIT SETTING STAGE [ESCI_ARGS]
   echo "=== $1 $2 $3 $4 ${5:-}"
   DATASET="$1" SPLIT="$2" SETTING="$3" RUNS_DIR="runs/$1_rev" ESCI_ARGS="${5:-}" bash scripts/run_esci.sh "$4"
@@ -30,14 +33,14 @@ TEMPLATES=(esci_v1p esci_v2 esci_v3 esci_v4)
 baselines_valid() { for s in "${SETTINGS[@]}"; do set -- $s; go "$1" valid "$2" baselines; done; }
 ablation() {
   for s in "esci judged" "wands retrieved"; do set -- $s
-    for m in qwen3 jev; do
+    for m in ${MODELS:-qwen3 jev}; do
       # (the main-wording validation runs come from fusion-inputs, which `all` runs first)
       for t in "${TEMPLATES[@]}"; do go "$1" valid "$2" "$m" "--template $t"; done
       go "$1" valid "$2" "$m" "--template esci_v1p --graded-with esci_v5"  # graded: P(exact) + P(acceptable)
     done
   done
 }
-fusion_inputs() { for s in "${SETTINGS[@]}"; do set -- $s; for m in qwen3 jev; do go "$1" valid "$2" "$m"; done; done; }
+fusion_inputs() { for s in "${SETTINGS[@]}"; do set -- $s; for m in ${MODELS:-qwen3 jev}; do go "$1" valid "$2" "$m"; done; done; }
 clm_controls() {
   go esci valid judged clm
   go esci valid judged clm "--clm-shuffle-seed 1"
@@ -59,5 +62,5 @@ case "$PHASE" in
   test-baselines) test_baselines ;;
   tables) tables ;;
   all) baselines_valid; fusion_inputs; ablation; clm_controls; test_baselines; tables ;;
-  *) echo "unknown phase: $PHASE"; sed -n '2,20p' "$0"; exit 1 ;;
+  *) echo "unknown phase: $PHASE"; sed -n '2,23p' "$0"; exit 1 ;;
 esac
