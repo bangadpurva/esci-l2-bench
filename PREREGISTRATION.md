@@ -102,6 +102,43 @@ Clef Flash is removed from the study. Cloudflare's free tier rate-limited every 
 test run was completed; its code path stays in the repository but no Clef result is reported.
 No other model, setting, metric or rule changes.
 
+### Amendment 5 (2026-10-29, after all test results were seen; in response to peer review)
+
+Written before any of the runs below were started. Everything here is exploratory: the main
+result tables, decision rules and frozen lists are unchanged, and no added analysis can change a
+pre-registered result. The templates and model configurations named here are committed with this
+amendment (`configs/templates/esci_v{1p,2,3,4,5}.yaml`, `configs/models/{qwen3_reranker_4b,qwen3_reranker_8b,prompted_qwen3_8b,bge_reranker_v2_m3}.yaml`).
+
+1. **Disclosure of an interface asymmetry in the main runs.** Jev received the `esci_v1` question plus its
+   true/false meanings; Qwen3-Reranker received the one-line `instruction` field of the same template (a shorter
+   paraphrase of the question, without the meanings). This was true from the first run and is recorded in the
+   template hash. Template `esci_v1p` gives Qwen3-Reranker exactly the text Jev reads.
+2. **Prompt sensitivity (validation queries only; never test).** Templates `esci_v1p`, `esci_v2` (paraphrase),
+   `esci_v3` (terse, question only, for every model), `esci_v4` (broad relevance, a deliberate wrong-criterion
+   control) and a graded formulation `esci_v1p` + `esci_v5` whose score is P(exact) + P(at least an acceptable
+   substitute), i.e. the expected grade on a 0-2 scale (no weights, nothing tuned). Run for Qwen3-Reranker-0.6B and
+   Jev on ESCI judged validation (500 queries) and WANDS validation (80 queries). Reported: P@10 per model and the
+   paired Jev minus Qwen3-Reranker difference with a 95% CI. No variant replaces `esci_v1` in the main results.
+3. **Added reference rerankers (test, exploratory).** Qwen3-Reranker-4B, Qwen3-Reranker-8B, Qwen3-8B prompted
+   pointwise with the Qwen3-Reranker yes/no format but no reranker training, and bge-reranker-v2-m3 (dropped in
+   Amendment 1 before any run; reinstated here after results were seen, so it is not a pre-run selection). Each
+   receives the `esci_v1` instruction (bge has no instruction channel). Reported: P@10, P@5, NDCG@10 and Jev minus
+   model P@10 (paired bootstrap, Holm across the added models within each setting). Model revisions are resolved
+   to the loaded commit hash and written to each run manifest.
+4. **Score fusion with L1 (offline, exploratory).** z-score fusion `alpha * z(L2) + (1 - alpha) * z(L1 similarity)`
+   (z within each query's candidates), alpha from {0, 0.1, ..., 1} chosen to maximise P@10 on the validation queries
+   of the same setting (ties go to the larger alpha) and then applied unchanged to test; and reciprocal rank fusion
+   with k = 60 (Cormack et al., 2009), nothing tuned. Needs validation and test runs of the same model.
+5. **Interface controls for CLM (validation, ESCI judged).** Candidate-order shuffles (seeds 1, 2) of the list
+   interface used on test, and CLM through a pointwise yes/no interface (state = query + product, options
+   {"yes", "no"}, score = P(yes)), to check whether CLM's failure depends on scoring the whole list at once.
+6. **Metrics and label analyses.** NDCG@10 (already listed above as a secondary metric) is now reported for the
+   test sets, with paired bootstrap differences. Two additional exploratory descriptions: the label mix of each
+   model's top 10 (Exact / Substitute / Complement / Irrelevant / unlabelled), and the ESCI results restricted to
+   queries with at least one Exact label, as a like-for-like check against the WANDS cohort definition.
+7. **Cost sensitivity.** Analytic only (`scripts/revision_cost.py`): one assumption varied at a time from the
+   reported latencies and billed tokens. No new runs.
+
 ## Baselines
 
 L1 order (embedding similarity), random order within the list, and an oracle that orders by

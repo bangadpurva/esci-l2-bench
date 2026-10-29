@@ -1,0 +1,18 @@
+# Prompt variant added in revision (Amendment 5), frozen before any run. Validation-only unless noted.
+# Paraphrase of the exactness question (different words, same criterion).
+id: esci_v2
+question: >-
+  Would the shopper who typed this query accept this product as precisely what they were looking for?
+true_means: >-
+  The product is the specific thing the query describes and satisfies every detail it states
+  (brand, model, size, quantity, compatibility, exclusions).
+false_means: >-
+  The product is another kind of item, ignores or contradicts a detail in the query, or is only an
+  accessory, spare part, or alternative.
+instruction: >-
+  Would the shopper who typed this query accept this product as precisely what they were looking for?
+  Answer yes if: the product is the specific thing the query describes and satisfies every detail it states
+  (brand, model, size, quantity, compatibility, exclusions).
+  Answer no if: the product is another kind of item, ignores or contradicts a detail in the query, or is only an
+  accessory, spare part, or alternative.
+state_labels: [Search query, Candidate product]

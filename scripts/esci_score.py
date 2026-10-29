@@ -29,7 +29,11 @@ from recl2bench.rerankers.base import UserProfile  # noqa: E402
 from recl2bench.runner import run  # noqa: E402
 from recl2bench.tokenizer import get_tokenizer  # noqa: E402
 
-MODELS = ["l1_order", "random", "oracle", "qwen3", "clef", "jev", "clm"]
+MODELS = ["l1_order", "random", "oracle", "qwen3", "clef", "jev", "clm",
+          # added in revision (Amendment 5): extra baselines and interface controls
+          "qwen3_4b", "qwen3_8b", "llm_qwen3_8b", "bge_m3", "clm_pointwise"]
+HF_CONFIG = {"qwen3": "qwen3_reranker", "qwen3_4b": "qwen3_reranker_4b", "qwen3_8b": "qwen3_reranker_8b",
+             "llm_qwen3_8b": "prompted_qwen3_8b"}
 
 
 def build(model: str, a, cfg_dir: Path, template: str):
@@ -45,11 +49,16 @@ def build(model: str, a, cfg_dir: Path, template: str):
     if model == "random":
         from recl2bench.rerankers.dummy import RandomReranker
         return RandomReranker(a.seed), {}, None, None, None
-    if model == "qwen3":
+    if model in HF_CONFIG:
         from recl2bench.rerankers.cross_encoder import Qwen3Reranker
-        c = mcfg("qwen3_reranker")
+        c = mcfg(HF_CONFIG[model])
         return (Qwen3Reranker(t["instruction"], c["hf_model"], c["revision"], max_length=c["max_length"],
                               batch_size=c["batch_size"]), c, tsha, None, None)
+    if model == "bge_m3":
+        from recl2bench.rerankers.cross_encoder import BGEReranker
+        c = mcfg("bge_reranker_v2_m3")
+        return (BGEReranker(c["hf_model"], c["revision"], max_length=c["max_length"],
+                            batch_size=c["batch_size"]), c, None, None, None)
     if model in ("clef", "jev"):
         from recl2bench.rerankers.decision import DecisionReranker, make_backend
         c = mcfg(model)
@@ -62,9 +71,45 @@ def build(model: str, a, cfg_dir: Path, template: str):
         from recl2bench.rerankers.clm import CLMReranker
         c = mcfg("clm")
         return (CLMReranker(c["emb_url"], engine_kwargs=c.get("engine_kwargs") or {},
-                            model_version=c["model_version"], instructions=t["question"]),
+                            model_version=c["model_version"], instructions=t["question"],
+                            shuffle_seed=getattr(a, "clm_shuffle_seed", None)), c, tsha, None, None)
+    if model == "clm_pointwise":
+        from recl2bench.rerankers.clm import CLMPointwise
+        c = mcfg("clm")
+        return (CLMPointwise(c["emb_url"], t["question"], engine_kwargs=c.get("engine_kwargs") or {},
+                             model_version=c["model_version"], state_labels=tuple(t["state_labels"])),
                 c, tsha, None, None)
     raise ValueError(model)
+
+
+def build_full(model: str, a, cfg_dir: Path, template: str):
+    """`build`, plus the graded two-question sum when --graded-with is given."""
+    r, c, tsha, mode, conc = build(model, a, cfg_dir, template)
+    if getattr(a, "graded_with", None):
+        from recl2bench.rerankers.composite import SumReranker
+        r2, _, tsha2, _, _ = build(model, a, cfg_dir, a.graded_with)
+        r = SumReranker([r, r2])
+        tsha = hashlib.sha256(f"{tsha}{tsha2}".encode()).hexdigest()
+    return r, c, tsha, mode, conc
+
+
+def input_tokens(reranker):
+    parts = getattr(reranker, "parts", None) or [reranker]
+    toks = [getattr(getattr(p, "backend", None), "usage_input_tokens", None) for p in parts]
+    toks = [t for t in toks if t is not None]
+    return sum(toks) if toks else None
+
+
+def run_name(a, template: str) -> str:
+    """Manifest model name: plain for the main runs, tagged for revision variants (so reports never mix)."""
+    name = a.model
+    if a.template:
+        name += f"@{template}"
+    if getattr(a, "graded_with", None):
+        name += f"+{a.graded_with}"
+    if getattr(a, "clm_shuffle_seed", None) is not None:
+        name += f"#shuffle{a.clm_shuffle_seed}"
+    return name
 
 
 def main(argv=None):
@@ -77,6 +122,9 @@ def main(argv=None):
     ap.add_argument("--concurrency", type=int)
     ap.add_argument("--scoring-mode", choices=["per_pair", "fan_out"])
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--template", help="prompt template id (revision variants); default: config l2.template")
+    ap.add_argument("--graded-with", help="second template; score = P(yes|template) + P(yes|graded-with)")
+    ap.add_argument("--clm-shuffle-seed", type=int, help="CLM candidate-order control")
     ap.add_argument("--tokenizer", help="'whitespace' for tests")
     ap.add_argument("--config", default="configs/esci.yaml")
     ap.add_argument("--configs", default="configs")
@@ -129,7 +177,7 @@ def main(argv=None):
     if a.model == "oracle":
         reranker, mcfg, tsha, mode, conc = ES.GradedOracle(labels), {}, None, None, None
     else:
-        reranker, mcfg, tsha, mode, conc = build(a.model, a, Path(a.configs), l2["template"])
+        reranker, mcfg, tsha, mode, conc = build_full(a.model, a, Path(a.configs), a.template or l2["template"])
         if hasattr(reranker, "device"):
             a.hardware = f"{a.hardware} [{reranker.device}]"
             print(f"{a.model}: device={reranker.device}", flush=True)
@@ -137,13 +185,14 @@ def main(argv=None):
     started = datetime.now(timezone.utc)
     per_user, scores, totals = run(reranker, pools, profiles, item_text, {},
                                    metric_fn=lambda ranked, u: EM.query_metrics(ranked, labels.get(u, {})))
-    tokens = getattr(getattr(reranker, "backend", None), "usage_input_tokens", None)
+    tokens = input_tokens(reranker)
     price = float((mcfg or {}).get("price_per_m_input", 0) or 0)
     cost = tokens * price / 1e6 if tokens is not None and price else None
-    run_id = (f"{started:%Y%m%dT%H%M%S}_A_{a.model}_{a.split}_{a.setting}"
+    tag = run_name(a, a.template or l2["template"])
+    run_id = (f"{started:%Y%m%dT%H%M%S}_A_{tag.replace('@', '-').replace('#', '-').replace('+', '-')}_{a.split}_{a.setting}"
               + (f"_n{a.limit_users}" if a.limit_users else ""))
     out = Path(a.runs_dir) / run_id
-    RunManifest(run_id=run_id, track="A", model=a.model,
+    RunManifest(run_id=run_id, track="A", model=tag,
                 model_version=",".join(sorted(totals["versions"])) or (mcfg or {}).get("model_version"),
                 scoring_mode=mode, pool_sha256=pool_sha, template_sha256=tsha,
                 budget_tokens=l2["item_tokens"], hardware_or_region=a.hardware, concurrency=conc,

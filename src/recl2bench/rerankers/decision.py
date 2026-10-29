@@ -89,6 +89,8 @@ class SystemOneBackend(Backend):
 
     @staticmethod
     def instructions(q: YesNoQuestion) -> str:
+        if not q.true_means and not q.false_means:       # question-only variant (revision)
+            return q.question
         return f"{q.question}\nAnswer true if: {q.true_means}\nAnswer false if: {q.false_means}"
 
     def ask(self, state, questions):

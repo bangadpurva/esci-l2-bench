@@ -1,0 +1,7 @@
+name: bge_m3
+family: cross_encoder
+hf_model: BAAI/bge-reranker-v2-m3   # dropped in Amendment 1 (before any run); reinstated in Amendment 5
+revision: null
+score: sigmoid_logit
+batch_size: 32
+max_length: 512

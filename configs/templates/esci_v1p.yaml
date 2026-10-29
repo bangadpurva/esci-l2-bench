@@ -1,0 +1,19 @@
+# Prompt variant added in revision (Amendment 5), frozen before any run. Validation-only unless noted.
+# Same wording as esci_v1, but Qwen3-Reranker's instruction is the full text Jev reads (question + meanings),
+# removing the interface asymmetry of the main runs.
+id: esci_v1p
+question: >-
+  Does this product exactly match what the shopper's search query asks for?
+true_means: >-
+  It is the kind of product the query asks for and meets every requirement stated in the
+  query, such as brand, model, size, quantity, compatibility, and any "without" or "not".
+false_means: >-
+  It is a different kind of product, misses or contradicts a stated requirement, or is only
+  an accessory, part, or substitute for what was asked.
+instruction: >-
+  Does this product exactly match what the shopper's search query asks for?
+  Answer yes if: it is the kind of product the query asks for and meets every requirement stated in the
+  query, such as brand, model, size, quantity, compatibility, and any "without" or "not".
+  Answer no if: it is a different kind of product, misses or contradicts a stated requirement, or is only
+  an accessory, part, or substitute for what was asked.
+state_labels: [Search query, Candidate product]

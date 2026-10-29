@@ -8,6 +8,8 @@
 #   SPLIT        test | valid                         [test]
 #   SETTING      retrieved (L1 top-100) | judged       [retrieved]
 #   CONCURRENCY  parallel API calls for clef / jev     [model config]
+#   RUNS_DIR     where runs are written / read         [runs/$DATASET]  (revision runs: runs/$DATASET_rev)
+#   ESCI_ARGS    extra esci_score.py flags, e.g. "--template esci_v2" or "--clm-shuffle-seed 1"
 #
 # Stages (STOP = send the output for review before continuing):
 #   check        GPU, packages, tests
@@ -41,7 +43,8 @@ HW="$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1 ||
 HW="${HW:-$(uname -m)} $(hostname)"
 run() { echo "+ $*" | tee -a "$LOG"; "$@" 2>&1 | tee -a "$LOG"; }
 read -r -a EXTRA <<< "${ESCI_ARGS:-}"
-SC=(python scripts/esci_score.py "${PATHS[@]}" --runs-dir "runs/$DS" --results-dir "results/$DS" --split "$SPLIT" --setting "$SETTING" --hardware "$HW"
+RUNS="${RUNS_DIR:-runs/$DS}"
+SC=(python scripts/esci_score.py "${PATHS[@]}" --runs-dir "$RUNS" --results-dir "results/$DS" --split "$SPLIT" --setting "$SETTING" --hardware "$HW"
     ${CONCURRENCY:+--concurrency "$CONCURRENCY"} ${EXTRA[@]+"${EXTRA[@]}"})
 
 echo "dataset=$DS stage=$STAGE SPLIT=$SPLIT SETTING=$SETTING log=$LOG" | tee -a "$LOG"
@@ -61,13 +64,13 @@ case "$STAGE" in
     run python scripts/esci_l1.py "${PATHS[@]}" --freeze ${EXTRA[@]+"${EXTRA[@]}"} ;;
   baselines)
     for m in l1_order random oracle; do run "${SC[@]}" --model "$m"; done ;;
-  qwen3|clm)
+  qwen3|clm|qwen3_4b|qwen3_8b|llm_qwen3_8b|bge_m3|clm_pointwise)
     run "${SC[@]}" --model "$STAGE" ;;
   clef|jev)
     run "${SC[@]}" --model "$STAGE" ;;
   clef-smoke|jev-smoke)
     m="${STAGE%-smoke}"
-    run python scripts/esci_score.py "${PATHS[@]}" --runs-dir "runs/$DS" --split valid --setting "$SETTING" --hardware "$HW" --model "$m" --limit-users 20 \
+    run python scripts/esci_score.py "${PATHS[@]}" --runs-dir "$RUNS" --split valid --setting "$SETTING" --hardware "$HW" --model "$m" --limit-users 20 \
         ${CONCURRENCY:+--concurrency "$CONCURRENCY"} ;;
   clm-setup)
     run python -m pip install -q contrastive-lm vllm

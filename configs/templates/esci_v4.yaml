@@ -1,0 +1,14 @@
+# Prompt variant added in revision (Amendment 5), frozen before any run. Validation-only unless noted.
+# Negative control: broad relevance instead of exact match (expected to be the wrong criterion).
+id: esci_v4
+question: >-
+  Is this product relevant to the shopper's search query?
+true_means: >-
+  It is something the shopper could reasonably want given the query.
+false_means: >-
+  It has nothing to do with what the query asks for.
+instruction: >-
+  Is this product relevant to the shopper's search query?
+  Answer yes if: it is something the shopper could reasonably want given the query.
+  Answer no if: it has nothing to do with what the query asks for.
+state_labels: [Search query, Candidate product]

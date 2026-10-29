@@ -1,0 +1,16 @@
+# Prompt variant added in revision (Amendment 5), frozen before any run. Validation-only unless noted.
+# Second question of the graded formulation: score = P(esci_v1p yes) + P(esci_v5 yes).
+id: esci_v5
+question: >-
+  Is this product at least an acceptable substitute for what the shopper's search query asks for?
+true_means: >-
+  It would serve the same purpose for the shopper, even if it differs from the query in a detail such
+  as brand, color, or size.
+false_means: >-
+  It serves a different purpose, or it is only an accessory or complement of what was asked.
+instruction: >-
+  Is this product at least an acceptable substitute for what the shopper's search query asks for?
+  Answer yes if: it would serve the same purpose for the shopper, even if it differs from the query in a detail such
+  as brand, color, or size.
+  Answer no if: it serves a different purpose, or it is only an accessory or complement of what was asked.
+state_labels: [Search query, Candidate product]

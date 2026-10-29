@@ -1,0 +1,8 @@
+name: qwen3_8b
+family: cross_encoder
+hf_model: Qwen/Qwen3-Reranker-8B
+revision: null
+score: p_yes
+template: yes_no_v1
+batch_size: 8
+max_length: 512

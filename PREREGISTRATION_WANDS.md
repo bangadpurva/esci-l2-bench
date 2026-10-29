@@ -93,3 +93,8 @@ labels refer to products in the catalog.
 Test L1 at freeze (identical to the dry run): judged@10 0.870, judged@100 0.708; recall of Exact
 at 100 0.624; queries with an Exact in the top 100 0.940. On ESCI the same figures were 0.248,
 0.075, 0.498 and 0.806, which is the label-completeness gain this study was designed for.
+
+### Amendment 5 (2026-10-29, after all test results were seen; in response to peer review)
+
+The revision analyses apply to WANDS exactly as specified in Amendment 5 of `PREREGISTRATION.md` (items 1-7, using the
+WANDS validation queries for prompt sensitivity and fusion weights). They are exploratory and change no pre-registered result.

@@ -55,6 +55,8 @@ class Qwen3Reranker(_HFBase):
             hf_model, revision=revision, dtype=self.dtype).to(self.device).eval()
         self.yes_id = self.tok.convert_tokens_to_ids("yes")
         self.no_id = self.tok.convert_tokens_to_ids("no")
+        if self.revision is None:      # record the commit actually loaded (revision-added models)
+            self.revision = getattr(self.model.config, "_commit_hash", None)
 
     def _score(self, user_profile, candidate_items):
         scores = []
@@ -66,5 +68,34 @@ class Qwen3Reranker(_HFBase):
                 last = self.model(**enc).logits[:, -1, :]
                 two = self.torch.stack([last[:, self.no_id], last[:, self.yes_id]], dim=1)
                 scores += self.torch.softmax(two.float(), dim=1)[:, 1].cpu().tolist()
+        return RerankResult(scores=[float(s) for s in scores],
+                            model_version=f"{self.hf_model}@{self.revision}")
+
+
+class BGEReranker(_HFBase):
+    """BAAI/bge-reranker-v2-m3 style sequence-classification cross-encoder (added in revision).
+
+    No instruction channel: the model scores (query, document) relevance, so it cannot be given the
+    exactness question. The score is the sigmoid of the single logit, as in the model card.
+    """
+    name = "bge_reranker"
+
+    def __init__(self, hf_model="BAAI/bge-reranker-v2-m3", revision=None, **kw):
+        super().__init__(hf_model, revision, **kw)
+        from transformers import AutoModelForSequenceClassification, AutoTokenizer
+        self.tok = AutoTokenizer.from_pretrained(hf_model, revision=revision)
+        self.model = AutoModelForSequenceClassification.from_pretrained(
+            hf_model, revision=revision, dtype=self.dtype).to(self.device).eval()
+        if self.revision is None:
+            self.revision = getattr(self.model.config, "_commit_hash", None)
+
+    def _score(self, user_profile, candidate_items):
+        scores = []
+        with self.torch.no_grad():
+            for batch in self._batches(candidate_items):
+                enc = self.tok([user_profile.text] * len(batch), [c.text for c in batch], padding=True,
+                               truncation=True, max_length=self.max_length, return_tensors="pt").to(self.device)
+                logits = self.model(**enc).logits.view(-1).float()
+                scores += self.torch.sigmoid(logits).cpu().tolist()
         return RerankResult(scores=[float(s) for s in scores],
                             model_version=f"{self.hf_model}@{self.revision}")

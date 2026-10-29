@@ -84,3 +84,21 @@ DATASET=wands bash scripts/run_esci.sh report
 ```
 
 299 test queries × 100 candidates = about 30K pairs: Jev about 45 min and $0.75.
+
+
+## Revision experiments (Amendment 5)
+
+Added in response to peer review; none of it touches the frozen lists or the main runs. Design and rules:
+Amendment 5 in [`PREREGISTRATION.md`](PREREGISTRATION.md). Revision runs go to `runs/<dataset>_rev`.
+
+```bash
+bash scripts/run_revision.sh all          # or phase by phase; see the header of the script for cost and time
+python scripts/revision_cost.py           # cost sensitivity (no runs needed)
+python scripts/revision_fusion.py         # needs validation + test runs of jev and qwen3
+python scripts/revision_tables.py all     # NDCG@10, label mix, Exact-subset, added baselines, ablation, CLM controls
+python scripts/check_slots.py paper_generated   # fails while any table cell is missing
+```
+
+Outputs are LaTeX tabulars in `paper_generated/` (copy them next to `main.tex`) plus `numbers.json`.
+Rough cost: ~170K Jev calls for the ablation (~$4, ~4 h at 12 calls/s), ~58K more for fusion weights;
+Qwen3-Reranker-8B and the prompted Qwen3-8B need a 48 GB GPU for the 100-candidate lists (~100K pairs per setting).

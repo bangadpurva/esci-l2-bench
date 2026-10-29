@@ -1,0 +1,8 @@
+name: llm_qwen3_8b
+family: prompted_llm        # general instruct LLM, same pointwise yes/no scoring as Qwen3-Reranker, no reranker training
+hf_model: Qwen/Qwen3-8B
+revision: null
+score: p_yes
+template: yes_no_v1
+batch_size: 8
+max_length: 512

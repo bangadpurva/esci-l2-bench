@@ -1,0 +1,8 @@
+name: qwen3_4b
+family: cross_encoder
+hf_model: Qwen/Qwen3-Reranker-4B
+revision: null            # resolved to the loaded commit hash and written to the run manifest
+score: p_yes
+template: yes_no_v1
+batch_size: 16
+max_length: 512
