@@ -57,7 +57,17 @@ test_baselines() {
   for m in qwen3_4b qwen3_8b llm_qwen3_8b bge_m3; do
     for s in "${SETTINGS[@]}"; do set -- $s; go "$1" test "$2" "$m"; done
     if [ "${CLEAN_HF:-}" = 1 ] && [ "$m" != llm_qwen3_8b ]; then
-      r="$(hf_repo "$m")"; rm -rf "${HF_HOME:-$PWD/.hf_cache}/hub/models--${r//\//--}"; echo "freed weights of $r"; df -h . | tail -1
+      r="$(hf_repo "$m")"
+      # HF keeps weights in a shared blobs/ store; deleting the model folder frees nothing, so use the cache API.
+      python - "$r" <<'PY'
+import sys
+from huggingface_hub import scan_cache_dir
+info = scan_cache_dir()
+revs = [rev.commit_hash for repo in info.repos if repo.repo_id == sys.argv[1] for rev in repo.revisions]
+if revs:
+    st = info.delete_revisions(*revs); st.execute(); print(f"freed {st.expected_freed_size_str} (weights of {sys.argv[1]})")
+PY
+      df -h . | tail -1
     fi
   done
 }
