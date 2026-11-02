@@ -11,7 +11,8 @@
 #   fusion-inputs     Qwen3-0.6B and Jev on validation (all three settings) so fusion weights can be chosen
 #                       (the test runs already exist from the main study).  Jev: ~58K calls
 #   clm-controls      CLM order-shuffle (seeds 1, 2) and pointwise yes/no, ESCI judged validation (needs clm-serve)
-#   test-baselines    Qwen3-Reranker-4B / 8B, prompted Qwen3-8B, bge-reranker-v2-m3 on the TEST lists (GPU 48 GB)
+#   test-baselines    Qwen3-Reranker-4B / 8B, prompted Qwen3-8B, bge-reranker-v2-m3 on the TEST lists (GPU 48 GB);
+#                       CLEAN_HF=1 deletes each model's weights after its runs (for ~50 GB disks)
 #   tables            revision_cost + revision_fusion + revision_tables  ->  paper_generated/
 #   all               every phase in order
 #
@@ -25,7 +26,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 PHASE="${1:-}"
-[ -n "$PHASE" ] || { sed -n '2,26p' "$0"; exit 1; }
+[ -n "$PHASE" ] || { sed -n '2,27p' "$0"; exit 1; }
 go() { # DATASET SPLIT SETTING STAGE [ESCI_ARGS]
   echo "=== $1 $2 $3 $4 ${5:-}"
   DATASET="$1" SPLIT="$2" SETTING="$3" RUNS_DIR="runs/$1_rev" ESCI_ARGS="--fail-on-failures --skip-if-done ${5:-}" bash scripts/run_esci.sh "$4"
@@ -50,7 +51,16 @@ clm_controls() {
   go esci valid judged clm "--clm-shuffle-seed 2"
   go esci valid judged clm_pointwise
 }
-test_baselines() { for s in "${SETTINGS[@]}"; do set -- $s; for m in qwen3_4b qwen3_8b llm_qwen3_8b bge_m3; do go "$1" test "$2" "$m"; done; done; }
+hf_repo() { case "$1" in qwen3_4b) echo Qwen/Qwen3-Reranker-4B;; qwen3_8b) echo Qwen/Qwen3-Reranker-8B;; llm_qwen3_8b) echo Qwen/Qwen3-8B;; bge_m3) echo BAAI/bge-reranker-v2-m3;; esac; }
+# One model at a time (all settings), so CLEAN_HF=1 can delete its weights afterwards on small disks. Qwen3-8B is kept: the CLM server reuses it.
+test_baselines() {
+  for m in qwen3_4b qwen3_8b llm_qwen3_8b bge_m3; do
+    for s in "${SETTINGS[@]}"; do set -- $s; go "$1" test "$2" "$m"; done
+    if [ "${CLEAN_HF:-}" = 1 ] && [ "$m" != llm_qwen3_8b ]; then
+      r="$(hf_repo "$m")"; rm -rf "${HF_HOME:-$PWD/.hf_cache}/hub/models--${r//\//--}"; echo "freed weights of $r"; df -h . | tail -1
+    fi
+  done
+}
 tables() {
   python scripts/revision_cost.py --out paper_generated
   python scripts/revision_fusion.py --models jev qwen3 --out paper_generated
@@ -65,5 +75,5 @@ case "$PHASE" in
   test-baselines) test_baselines ;;
   tables) tables ;;
   all) baselines_valid; fusion_inputs; ablation; clm_controls; test_baselines; tables ;;
-  *) echo "unknown phase: $PHASE"; sed -n '2,26p' "$0"; exit 1 ;;
+  *) echo "unknown phase: $PHASE"; sed -n '2,27p' "$0"; exit 1 ;;
 esac
