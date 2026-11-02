@@ -43,16 +43,18 @@ def main(argv=None):
     blob_dirs = [hub / "blobs", *map(Path, glob.glob(str(hub / "models--*" / "blobs")))]
     freed = 0
     for bd in blob_dirs:
-        for b in glob.glob(str(bd / "*")):
-            if b.endswith(".incomplete") or os.path.realpath(b) in used:
-                continue
-            if time.time() - os.path.getmtime(b) < 600:
-                continue
-            size = os.path.getsize(b)
-            freed += size
-            print(f"{'delete' if a.delete else 'orphan'} {b} ({size / 1e9:.2f} GB)")
-            if a.delete:
-                os.remove(b)
+        for root, _dirs, files in os.walk(bd):            # blobs may sit in shard folders (blobs/7f/<hash>)
+            for fn in files:
+                b = os.path.join(root, fn)
+                if b.endswith(".incomplete") or os.path.realpath(b) in used:
+                    continue
+                if time.time() - os.path.getmtime(b) < 600:
+                    continue
+                size = os.path.getsize(b)
+                freed += size
+                print(f"{'delete' if a.delete else 'orphan'} {b} ({size / 1e9:.2f} GB)")
+                if a.delete:
+                    os.remove(b)
     print(f"{'freed' if a.delete else 'would free'} {freed / 1e9:.1f} GB")
 
 
