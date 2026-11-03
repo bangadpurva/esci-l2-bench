@@ -294,3 +294,19 @@ def test_find_runs_ignores_runs_with_failed_calls(ws, capsys):
     runs = R.find_runs([root / "runs/esci"], "test", "judged")
     assert runs["jev"]["manifest"]["started_at"] == "2026-10-29T10:00:00+00:00"   # falls back to the clean run
     assert "ignoring" in capsys.readouterr().out
+
+
+def test_baselines_table_omits_models_never_run_and_cost_table_from_runs(ws):
+    root, worlds = ws
+    import revision_tables as T
+    pools, truth = worlds["test"]
+    rng = np.random.default_rng(11)
+    for m in ("qwen3_4b",):                                       # only one added baseline exists; qwen3_8b / llm / bge were not run
+        _write_run(root / "runs/esci_rev", m, "test", "judged", pools, truth, "good", rng)
+    T.NUMBERS.clear(); T.WARN.clear()
+    T.main(["baselines", "--root", str(root), "--out", str(root / "o_b"), "--resamples", "200"])
+    tex = (root / "o_b" / "tab_baselines.tex").read_text()
+    assert "Qwen3-Reranker-4B" in tex and "Qwen3-Reranker-8B" not in tex and "bge-reranker" not in tex
+    import revision_cost as C
+    # cost table: needs a 'retrieved' test run with latency; synthetic judged run only -> table skipped gracefully
+    C.measured_table(root, root / "o_b")

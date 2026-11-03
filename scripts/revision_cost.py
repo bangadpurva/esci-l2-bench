@@ -54,9 +54,44 @@ def scenarios():
     yield "GPU busy 25\\% of the time", lambda d: jev_cost(d), lambda d: local_cost(P50["qwen3"][d], util=0.25)
 
 
+NAMES = {"qwen3": "Qwen3-Reranker-0.6B", "qwen3_4b": "Qwen3-Reranker-4B", "qwen3_8b": "Qwen3-Reranker-8B",
+         "llm_qwen3_8b": "Qwen3-8B, prompted", "bge_m3": "bge-reranker-v2-m3", "clm": "CLM-v0.1-8B"}
+
+
+def measured_table(root: Path, out: Path):
+    """Cost per 1,000 requests of every local model with a finished 100-candidate test run, from its measured p50 time
+    (same accounting as the main table: A40 timing x g6e.xlarge on-demand rate, busy seconds only)."""
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+    from recl2bench import revision as R
+    rows = []
+    for key, label in NAMES.items():
+        cells, any_run = [], False
+        for ds, name in (("esci", "ESCI"), ("wands", "WANDS")):
+            runs = R.find_runs([root / "runs" / ds, root / "runs" / f"{ds}_rev"], "test", "retrieved")
+            if key in runs:
+                p50 = float(runs[key]["per_user"]["latency_s"].quantile(0.5)); any_run = True
+                cells += [f"{p50:.2f}", f"{local_cost(p50):.2f}"]
+            else:
+                cells += ["n/a", "n/a"]
+        if any_run:
+            rows.append(" & ".join([label] + cells) + " \\\\")
+    for ds in ("ESCI", "WANDS"):
+        pass
+    if not rows:
+        return
+    rows.append(" & ".join(["Jev (API, billed tokens)", "--", f"{jev_cost('ESCI'):.2f}", "--", f"{jev_cost('WANDS'):.2f}"]) + " \\\\")
+    tab = "\n".join(["\\begin{tabular}{@{}lcccc@{}}", "\\toprule",
+                     " & \\multicolumn{2}{c}{ESCI} & \\multicolumn{2}{c}{WANDS} \\\\", "\\cmidrule(lr){2-3}\\cmidrule(lr){4-5}",
+                     "Model & p50 (s) & USD / 1K & p50 (s) & USD / 1K \\\\", "\\midrule", *rows, "\\bottomrule", "\\end{tabular}", ""])
+    (out / "tab_cost_models.tex").write_text(tab)
+    print(tab)
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="paper_generated")
+    ap.add_argument("--root", default=".")
     a = ap.parse_args(argv)
     # reproduce the reported numbers first
     rep = {"qwen3": (0.63, 0.82), "clm": (1.97, 2.12), "jev": (2.38, 2.75)}
@@ -82,6 +117,7 @@ def main(argv=None):
     out.mkdir(parents=True, exist_ok=True)
     (out / "tab_cost_sensitivity.tex").write_text(tab)
     print(tab)
+    measured_table(Path(a.root), out)
     # the break-even utilisation, where both cost the same
     for d in ("ESCI", "WANDS"):
         u = local_cost(P50["qwen3"][d]) / jev_cost(d)

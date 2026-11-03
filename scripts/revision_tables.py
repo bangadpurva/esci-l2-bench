@@ -192,6 +192,7 @@ def t_exact_subset(root, out, strict, n):
 def t_baselines(root, out, strict, n):
     cs = ctxs(root, "test")
     models = ["l1_order", "qwen3", "qwen3_4b", "qwen3_8b", "llm_qwen3_8b", "bge_m3", "jev"]
+    models = [m for m in models if any(c.has(m) for c in cs.values())]      # a baseline that was not run at all is omitted, not shown as n/a
     added = [m for m in models if m not in ("l1_order", "jev", "qwen3")]
     if not any(c.has(m) for c in cs.values() for m in added):
         return need(strict, "test runs of the added baselines")
