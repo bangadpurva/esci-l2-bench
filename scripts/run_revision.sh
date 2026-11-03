@@ -12,7 +12,7 @@
 #                       (the test runs already exist from the main study).  Jev: ~58K calls
 #   clm-controls      CLM order-shuffle (seeds 1, 2) and pointwise yes/no, ESCI judged validation (needs clm-serve)
 #   test-baselines    Qwen3-Reranker-4B / 8B, prompted Qwen3-8B, bge-reranker-v2-m3 on the TEST lists (GPU 48 GB);
-#                       CLEAN_HF=1 deletes each model's weights after its runs (for ~50 GB disks)
+#                       TB_MODELS="qwen3_4b bge_m3" runs a subset; CLEAN_HF=1 deletes each model's weights after its runs (for ~50 GB disks)
 #   tables            revision_cost + revision_fusion + revision_tables  ->  paper_generated/
 #   all               every phase in order
 #
@@ -54,7 +54,7 @@ clm_controls() {
 hf_repo() { case "$1" in qwen3_4b) echo Qwen/Qwen3-Reranker-4B;; qwen3_8b) echo Qwen/Qwen3-Reranker-8B;; llm_qwen3_8b) echo Qwen/Qwen3-8B;; bge_m3) echo BAAI/bge-reranker-v2-m3;; esac; }
 # One model at a time (all settings), so CLEAN_HF=1 can delete its weights afterwards on small disks. Qwen3-8B is kept: the CLM server reuses it.
 test_baselines() {
-  for m in qwen3_4b qwen3_8b llm_qwen3_8b bge_m3; do
+  for m in ${TB_MODELS:-qwen3_4b qwen3_8b llm_qwen3_8b bge_m3}; do      # TB_MODELS="qwen3_4b bge_m3" runs a subset
     for s in "${SETTINGS[@]}"; do set -- $s; go "$1" test "$2" "$m"; done
     if [ "${CLEAN_HF:-}" = 1 ] && [ "$m" != llm_qwen3_8b ]; then
       python scripts/hf_gc.py "$(hf_repo "$m")" --delete      # HF keeps weights in a shared blobs/ store; see hf_gc.py
